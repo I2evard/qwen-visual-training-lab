@@ -24,6 +24,8 @@ class TrainConfig:
     num_attention_heads: int
     lora_rank: int
     lora_alpha: int
+    max_train_minutes: float | None
+    log_every: int
 
 
 def parse_args() -> argparse.Namespace:
@@ -52,7 +54,26 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-attention-heads", type=int, default=4)
     parser.add_argument("--lora-rank", type=int, default=4)
     parser.add_argument("--lora-alpha", type=int, default=8)
-    return parser.parse_args()
+    parser.add_argument(
+        "--max-train-minutes",
+        type=float,
+        default=None,
+        help="Gracefully stop training after this many wall-clock minutes.",
+    )
+    parser.add_argument(
+        "--log-every",
+        type=int,
+        default=1,
+        help="Print every N training steps. Metrics still record every step.",
+    )
+    args = parser.parse_args()
+
+    if args.max_train_minutes is not None and args.max_train_minutes <= 0:
+        raise SystemExit("--max-train-minutes must be greater than 0 when provided.")
+    if args.log_every < 1:
+        raise SystemExit("--log-every must be at least 1.")
+
+    return args
 
 
 def format_example(record: dict[str, object]) -> str:
@@ -230,6 +251,13 @@ def main() -> int:
     print(f"INITIAL_EVAL_LOSS={initial_eval_loss:.6f}")
 
     step = 0
+    completed_epochs = 0
+    stopped_reason = "epochs_completed"
+    train_start_time = time.monotonic()
+    max_train_seconds = (
+        args.max_train_minutes * 60 if args.max_train_minutes is not None else None
+    )
+    stop_training = False
     for epoch in range(1, args.epochs + 1):
         random.shuffle(encoded_train)
         for encoded in encoded_train:
@@ -246,8 +274,35 @@ def main() -> int:
             loss.backward()
             optimizer.step()
             loss_value = float(loss.detach().cpu())
-            losses.append({"step": step, "epoch": epoch, "train_loss": loss_value})
-            print(f"step={step} epoch={epoch} train_loss={loss_value:.6f}")
+            elapsed_seconds = time.monotonic() - train_start_time
+            losses.append(
+                {
+                    "step": step,
+                    "epoch": epoch,
+                    "train_loss": loss_value,
+                    "elapsed_seconds": elapsed_seconds,
+                }
+            )
+            if step == 1 or step % args.log_every == 0:
+                print(
+                    f"step={step} epoch={epoch} train_loss={loss_value:.6f} "
+                    f"elapsed_seconds={elapsed_seconds:.1f}"
+                )
+
+            if max_train_seconds is not None and elapsed_seconds >= max_train_seconds:
+                stopped_reason = "time_limit_reached"
+                stop_training = True
+                print(
+                    f"TRAINING_TIME_LIMIT_REACHED minutes={args.max_train_minutes:.2f} "
+                    f"steps={step}"
+                )
+                break
+
+        if stop_training:
+            break
+        completed_epochs = epoch
+
+    train_duration_seconds = time.monotonic() - train_start_time
 
     final_eval_loss = evaluate(
         model=model,
@@ -257,6 +312,9 @@ def main() -> int:
         torch_module=torch,
     )
     print(f"FINAL_EVAL_LOSS={final_eval_loss:.6f}")
+    print(f"TRAINING_STOPPED_REASON={stopped_reason}")
+    print(f"TRAINING_STEPS={step}")
+    print(f"TRAINING_DURATION_SECONDS={train_duration_seconds:.1f}")
 
     train_loss_values = [float(entry["train_loss"]) for entry in losses]
     final_train_loss = train_loss_values[-1] if train_loss_values else None
@@ -288,13 +346,19 @@ def main() -> int:
         num_attention_heads=args.num_attention_heads,
         lora_rank=args.lora_rank,
         lora_alpha=args.lora_alpha,
+        max_train_minutes=args.max_train_minutes,
+        log_every=args.log_every,
     )
     metrics = {
         "status": "completed",
+        "stopped_reason": stopped_reason,
         "directml_device": str(dml),
         "train_examples": len(encoded_train),
         "eval_examples": len(encoded_eval),
         "vocab_size": len(token_to_id),
+        "completed_epochs": completed_epochs,
+        "completed_steps": step,
+        "train_duration_seconds": train_duration_seconds,
         "initial_eval_loss": initial_eval_loss,
         "final_eval_loss": final_eval_loss,
         "eval_loss_delta": eval_loss_delta,

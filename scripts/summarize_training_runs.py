@@ -68,6 +68,10 @@ def run_record(metrics_path: Path) -> dict[str, Any] | None:
         "train_examples": metrics.get("train_examples"),
         "eval_examples": metrics.get("eval_examples"),
         "vocab_size": metrics.get("vocab_size"),
+        "stopped_reason": metrics.get("stopped_reason"),
+        "completed_epochs": metrics.get("completed_epochs"),
+        "completed_steps": metrics.get("completed_steps"),
+        "train_duration_seconds": metrics.get("train_duration_seconds"),
         "initial_eval_loss": initial_eval_loss,
         "final_eval_loss": final_eval_loss,
         "eval_loss_delta": eval_loss_delta,
@@ -80,6 +84,7 @@ def run_record(metrics_path: Path) -> dict[str, Any] | None:
         "num_hidden_layers": config.get("num_hidden_layers"),
         "lora_rank": config.get("lora_rank"),
         "learning_rate": config.get("learning_rate"),
+        "max_train_minutes": config.get("max_train_minutes"),
     }
 
 
@@ -123,6 +128,12 @@ def print_summary(summary: dict[str, Any]) -> None:
     print(f"LATEST_EVAL_LOSS_DELTA={latest['eval_loss_delta']:.6f}")
     if latest["eval_loss_improvement_pct"] is not None:
         print(f"LATEST_EVAL_IMPROVEMENT_PCT={latest['eval_loss_improvement_pct']:.2f}")
+    if latest.get("stopped_reason"):
+        print(f"LATEST_STOPPED_REASON={latest['stopped_reason']}")
+    if latest.get("completed_steps") is not None:
+        print(f"LATEST_COMPLETED_STEPS={latest['completed_steps']}")
+    if latest.get("train_duration_seconds") is not None:
+        print(f"LATEST_TRAIN_DURATION_SECONDS={float(latest['train_duration_seconds']):.1f}")
 
 
 def main() -> int:

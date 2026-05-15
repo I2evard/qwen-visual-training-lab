@@ -120,7 +120,7 @@ Qwen2.5VL fine-tuning. It trains a tiny Llama/Qwen-style causal LM with LoRA on
 the local seed traces, saves metrics, and writes the adapter under ignored
 `runs\`.
 
-Current leak-free baseline run:
+Historical leak-free baseline run:
 
 - command: `.\.venv-directml\Scripts\python.exe .\scripts\train_seed_directml_lora.py --epochs 1 --max-seq-len 96`
 - train examples: `1`
@@ -156,6 +156,26 @@ Summarize local runs:
 ```powershell
 .\.venv-directml\Scripts\python.exe .\scripts\summarize_training_runs.py --output .\runs\training-summary.json
 ```
+
+Run a wall-clock-capped local probe:
+
+```powershell
+.\.venv-directml\Scripts\python.exe .\scripts\train_seed_directml_lora.py `
+  --dataset .\data\seed\local-agent-training-dataset-full.jsonl `
+  --epochs 10000 `
+  --max-train-minutes 30 `
+  --log-every 50
+```
+
+First 30-minute capped DirectML archive probe:
+
+- stopped reason: `time_limit_reached`
+- train duration: `1800.0` seconds
+- completed steps: `31843`
+- initial eval loss: `4.403754`
+- final eval loss: `3.444074`
+- eval loss improvement: `21.79%`
+- result: `SEED_DIRECTML_LORA_TRAINING_OK`
 
 ## What success looks like
 
