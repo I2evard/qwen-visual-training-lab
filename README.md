@@ -38,6 +38,7 @@ powershell -NoProfile -File .\scripts\setup-directml-env.ps1
 .\.venv-directml\Scripts\python.exe .\scripts\smoke_test_directml.py
 .\.venv-directml\Scripts\python.exe .\scripts\smoke_test_peft_directml.py
 powershell -NoProfile -File .\scripts\sync_seed_artifacts.ps1
+.\.venv-directml\Scripts\python.exe .\scripts\train_seed_directml_lora.py
 ```
 
 ## Repo layout
@@ -46,6 +47,7 @@ powershell -NoProfile -File .\scripts\sync_seed_artifacts.ps1
 - `scripts\setup-directml-env.ps1` - creates a clean DirectML-focused venv
 - `scripts\smoke_test_directml.py` - basic DirectML device + backward-pass probe
 - `scripts\smoke_test_peft_directml.py` - tiny `transformers` + `peft` LoRA probe on DirectML
+- `scripts\train_seed_directml_lora.py` - first real local seed-trace LoRA training run on DirectML
 - `scripts\sync_seed_artifacts.ps1` - copies current seed dataset/eval artifacts
 - `requirements-directml.txt` - base experiment dependencies
 
@@ -67,6 +69,22 @@ Interpretation:
 - **DirectML is alive enough to be worth probing further**
 - **A tiny `transformers` + `peft` LoRA training step can run on DirectML when the target modules are standard linear projections**
 - The next risk is scaling from this tiny probe to a real Qwen-style visual model without hitting unsupported DirectML operators or memory limits
+
+## Training status
+
+`train_seed_directml_lora.py` is intentionally a bootstrap trainer, not full
+Qwen2.5VL fine-tuning. It trains a tiny Llama/Qwen-style causal LM with LoRA on
+the local seed traces, saves metrics, and writes the adapter under ignored
+`runs\`.
+
+First verified run:
+
+- command: `.\.venv-directml\Scripts\python.exe .\scripts\train_seed_directml_lora.py --epochs 1 --max-seq-len 96`
+- train examples: `13`
+- eval examples: `4`
+- initial eval loss: `4.298570`
+- final eval loss: `4.132506`
+- result: `SEED_DIRECTML_LORA_TRAINING_OK`
 
 ## What success looks like
 
