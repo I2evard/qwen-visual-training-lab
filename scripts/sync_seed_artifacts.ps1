@@ -28,12 +28,29 @@ $copies = @(
     }
 )
 
+$optionalCopies = @(
+    [ordered]@{
+        source = Join-Path $SourceRoot 'local-agent-training\dataset-full.jsonl'
+        destination = Join-Path $dataDir 'local-agent-training-dataset-full.jsonl'
+    }
+)
+
 New-Item -ItemType Directory -Path $dataDir -Force | Out-Null
 New-Item -ItemType Directory -Path $evalDir -Force | Out-Null
 
 foreach ($copy in $copies) {
     if (-not (Test-Path -LiteralPath $copy.source -PathType Leaf)) {
         throw "Source artifact not found: $($copy.source)"
+    }
+
+    Copy-Item -LiteralPath $copy.source -Destination $copy.destination -Force
+    Write-Output "Copied $($copy.source) -> $($copy.destination)"
+}
+
+foreach ($copy in $optionalCopies) {
+    if (-not (Test-Path -LiteralPath $copy.source -PathType Leaf)) {
+        Write-Output "Skipped optional artifact not found: $($copy.source)"
+        continue
     }
 
     Copy-Item -LiteralPath $copy.source -Destination $copy.destination -Force

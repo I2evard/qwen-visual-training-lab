@@ -258,6 +258,18 @@ def main() -> int:
     )
     print(f"FINAL_EVAL_LOSS={final_eval_loss:.6f}")
 
+    train_loss_values = [float(entry["train_loss"]) for entry in losses]
+    final_train_loss = train_loss_values[-1] if train_loss_values else None
+    mean_train_loss = (
+        sum(train_loss_values) / len(train_loss_values) if train_loss_values else None
+    )
+    eval_loss_delta = final_eval_loss - initial_eval_loss
+    eval_loss_improvement_pct = (
+        ((initial_eval_loss - final_eval_loss) / initial_eval_loss) * 100
+        if initial_eval_loss
+        else None
+    )
+
     args.output_dir.mkdir(parents=True, exist_ok=True)
     model.to("cpu")
     model.save_pretrained(args.output_dir / "adapter")
@@ -285,6 +297,10 @@ def main() -> int:
         "vocab_size": len(token_to_id),
         "initial_eval_loss": initial_eval_loss,
         "final_eval_loss": final_eval_loss,
+        "eval_loss_delta": eval_loss_delta,
+        "eval_loss_improvement_pct": eval_loss_improvement_pct,
+        "final_train_loss": final_train_loss,
+        "mean_train_loss": mean_train_loss,
         "losses": losses,
         "config": asdict(config),
     }

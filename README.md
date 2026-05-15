@@ -34,14 +34,14 @@ The current machine can already do:
 - local Ollama inference on the AMD GPU
 - visual-review prompt packing
 - dataset and eval preparation
+- tiny DirectML LoRA training against local seed traces
 
 The current machine cannot yet do:
 
-- real PyTorch LoRA/SFT training on a GPU-visible backend through the standard
-  Windows Python stack
+- full Qwen2.5VL LoRA/SFT training through the standard Windows Python GPU stack
 
-So this repo tests whether **DirectML** can become that missing Windows-native
-bridge.
+So this repo tests how far **DirectML** can go as a Windows-native bridge before
+the work needs Linux or cloud GPU capacity.
 
 ## Quick start
 
@@ -52,6 +52,7 @@ Set-Location .\qwen-visual-training-lab
 .\.venv-directml\Scripts\python.exe .\scripts\smoke_test_directml.py
 .\.venv-directml\Scripts\python.exe .\scripts\smoke_test_peft_directml.py
 .\.venv-directml\Scripts\python.exe .\scripts\train_seed_directml_lora.py
+.\.venv-directml\Scripts\python.exe .\scripts\summarize_training_runs.py
 ```
 
 To train on local seed traces, first point the sync script at a local source
@@ -69,12 +70,26 @@ folder that contains `local-agent-training\dataset.jsonl`,
 - `scripts\smoke_test_directml.py` - basic DirectML device + backward-pass probe
 - `scripts\smoke_test_peft_directml.py` - tiny `transformers` + `peft` LoRA probe on DirectML
 - `scripts\train_seed_directml_lora.py` - first real local seed-trace LoRA training run on DirectML
+- `scripts\summarize_training_runs.py` - summarizes ignored local `runs\*\metrics.json` files
 - `scripts\sync_seed_artifacts.ps1` - copies current seed dataset/eval artifacts
 - `requirements-directml.txt` - base experiment dependencies
 
-Generated `data\` and `evals\` artifacts are intentionally local-only and ignored
-by git. Re-run `sync_seed_artifacts.ps1` to refresh them from your own local
-workspace.
+Generated `data\`, `evals\`, and `runs\` artifacts are intentionally local-only
+and ignored by git. Re-run `sync_seed_artifacts.ps1` to refresh them from your
+own local workspace.
+
+## Dataset and eval discipline
+
+The sync script copies two dataset lanes when they exist:
+
+- `data\seed\local-agent-training-dataset.jsonl` - leak-free training subset
+  after eval-overlap exclusions. Use this for honest regression checks.
+- `data\seed\local-agent-training-dataset-full.jsonl` - fuller local archive.
+  Use this only as a DirectML stress/overfit probe because it can include rows
+  that overlap the eval set.
+
+That split is deliberate: a bigger run can prove the Windows GPU path survives
+more steps, while the smaller leak-free set preserves honest eval discipline.
 
 ## Current findings
 
@@ -99,14 +114,42 @@ Qwen2.5VL fine-tuning. It trains a tiny Llama/Qwen-style causal LM with LoRA on
 the local seed traces, saves metrics, and writes the adapter under ignored
 `runs\`.
 
-First verified run:
+Current leak-free baseline run:
 
 - command: `.\.venv-directml\Scripts\python.exe .\scripts\train_seed_directml_lora.py --epochs 1 --max-seq-len 96`
-- train examples: `13`
-- eval examples: `4`
-- initial eval loss: `4.298570`
-- final eval loss: `4.132506`
+- train examples: `1`
+- eval examples: `1`
+- initial eval loss: `4.251912`
+- final eval loss: `4.239905`
+- eval loss improvement: `0.28%`
 - result: `SEED_DIRECTML_LORA_TRAINING_OK`
+
+First fuller DirectML archive probe:
+
+- command:
+  ```powershell
+  .\.venv-directml\Scripts\python.exe .\scripts\train_seed_directml_lora.py `
+    --dataset .\data\seed\local-agent-training-dataset-full.jsonl `
+    --epochs 3 `
+    --max-seq-len 128 `
+    --hidden-size 96 `
+    --intermediate-size 192 `
+    --num-hidden-layers 3 `
+    --lora-rank 8 `
+    --lora-alpha 16
+  ```
+- train examples: `6`
+- eval examples: `2`
+- initial eval loss: `4.438062`
+- final eval loss: `4.011981`
+- eval loss improvement: `9.60%`
+- result: `SEED_DIRECTML_LORA_TRAINING_OK`
+
+Summarize local runs:
+
+```powershell
+.\.venv-directml\Scripts\python.exe .\scripts\summarize_training_runs.py --output .\runs\training-summary.json
+```
 
 ## What success looks like
 
