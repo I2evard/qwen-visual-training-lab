@@ -1,14 +1,20 @@
 # Qwen visual training lab
 
-Experimental repo for getting a **Windows + AMD** training path working for a
-Qwen-based visual reviewer.
+**Windows-native AMD + DirectML lab for Qwen-style visual LoRA experiments.**
+
+This repo explores the most practical Windows fallback path for a Qwen-based
+visual reviewer: DirectML device checks, PEFT/LoRA smoke tests, and tiny
+seed-trace training runs that help answer a simple question:
+
+**How far can the Windows + AMD path go before Linux or cloud GPUs become the
+right answer?**
 
 ## Goal
 
 Use this repo to test the most realistic Windows-native fallback:
 
 - **DirectML** for GPU visibility on Windows
-- a small **training-step smoke test**
+- **PEFT/LoRA smoke tests** and a small training-step probe
 - seed prompts, evals, and datasets copied from the current local visual-agent work
 
 If this lane fails, the next move is **Linux / cloud GPU** for the real LoRA
