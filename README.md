@@ -14,6 +14,19 @@ Use this repo to test the most realistic Windows-native fallback:
 If this lane fails, the next move is **Linux / cloud GPU** for the real LoRA
 training run.
 
+## Public-sharing note
+
+This repo intentionally commits only source code, prompts, and setup scripts.
+Generated local artifacts are ignored:
+
+- `data\`
+- `evals\`
+- `runs\`
+- `.venv-directml\`
+
+That keeps local traces, eval outputs, adapters, and environment files out of the
+public repo.
+
 ## Current hypothesis
 
 The current machine can already do:
@@ -33,12 +46,20 @@ bridge.
 ## Quick start
 
 ```powershell
-Set-Location E:\Production\qwen-visual-training-lab
-powershell -NoProfile -File .\scripts\setup-directml-env.ps1
+git clone https://github.com/I2evard/qwen-visual-training-lab.git
+Set-Location .\qwen-visual-training-lab
+.\scripts\setup-directml-env.ps1
 .\.venv-directml\Scripts\python.exe .\scripts\smoke_test_directml.py
 .\.venv-directml\Scripts\python.exe .\scripts\smoke_test_peft_directml.py
-powershell -NoProfile -File .\scripts\sync_seed_artifacts.ps1
 .\.venv-directml\Scripts\python.exe .\scripts\train_seed_directml_lora.py
+```
+
+To train on local seed traces, first point the sync script at a local source
+folder that contains `local-agent-training\dataset.jsonl`,
+`local-agent-training\dataset-report.json`, and `local-agent-evals.json`:
+
+```powershell
+.\scripts\sync_seed_artifacts.ps1 -SourceRoot "C:\path\to\source"
 ```
 
 ## Repo layout
@@ -52,7 +73,8 @@ powershell -NoProfile -File .\scripts\sync_seed_artifacts.ps1
 - `requirements-directml.txt` - base experiment dependencies
 
 Generated `data\` and `evals\` artifacts are intentionally local-only and ignored
-by git. Re-run `sync_seed_artifacts.ps1` to refresh them from the local workspace.
+by git. Re-run `sync_seed_artifacts.ps1` to refresh them from your own local
+workspace.
 
 ## Current findings
 

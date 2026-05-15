@@ -1,9 +1,13 @@
 [CmdletBinding()]
 param(
-    [string]$SourceRoot = 'E:\Production\AI\Copilot'
+    [string]$SourceRoot = $env:LOCAL_AGENT_SOURCE_ROOT
 )
 
 $ErrorActionPreference = 'Stop'
+
+if ([string]::IsNullOrWhiteSpace($SourceRoot)) {
+    throw 'SourceRoot is required. Pass -SourceRoot "C:\path\to\source" or set LOCAL_AGENT_SOURCE_ROOT.'
+}
 
 $repoRoot = Split-Path -Path $PSScriptRoot -Parent
 $dataDir = Join-Path $repoRoot 'data\seed'
