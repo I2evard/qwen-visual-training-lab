@@ -1,0 +1,7 @@
+torch-directml
+transformers<5
+accelerate
+datasets
+peft
+pillow
+safetensors

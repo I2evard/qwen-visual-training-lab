@@ -1,0 +1,81 @@
+# Qwen visual training lab
+
+Experimental repo for getting a **Windows + AMD** training path working for a
+Qwen-based visual reviewer.
+
+## Goal
+
+Use this repo to test the most realistic Windows-native fallback:
+
+- **DirectML** for GPU visibility on Windows
+- a small **training-step smoke test**
+- seed prompts, evals, and datasets copied from the current local visual-agent work
+
+If this lane fails, the next move is **Linux / cloud GPU** for the real LoRA
+training run.
+
+## Current hypothesis
+
+The current machine can already do:
+
+- local Ollama inference on the AMD GPU
+- visual-review prompt packing
+- dataset and eval preparation
+
+The current machine cannot yet do:
+
+- real PyTorch LoRA/SFT training on a GPU-visible backend through the standard
+  Windows Python stack
+
+So this repo tests whether **DirectML** can become that missing Windows-native
+bridge.
+
+## Quick start
+
+```powershell
+Set-Location E:\Production\qwen-visual-training-lab
+powershell -NoProfile -File .\scripts\setup-directml-env.ps1
+.\.venv-directml\Scripts\python.exe .\scripts\smoke_test_directml.py
+.\.venv-directml\Scripts\python.exe .\scripts\smoke_test_peft_directml.py
+powershell -NoProfile -File .\scripts\sync_seed_artifacts.ps1
+```
+
+## Repo layout
+
+- `prompts\` - compact prompt/context assets for the visual reviewer
+- `scripts\setup-directml-env.ps1` - creates a clean DirectML-focused venv
+- `scripts\smoke_test_directml.py` - basic DirectML device + backward-pass probe
+- `scripts\smoke_test_peft_directml.py` - tiny `transformers` + `peft` LoRA probe on DirectML
+- `scripts\sync_seed_artifacts.ps1` - copies current seed dataset/eval artifacts
+- `requirements-directml.txt` - base experiment dependencies
+
+Generated `data\` and `evals\` artifacts are intentionally local-only and ignored
+by git. Re-run `sync_seed_artifacts.ps1` to refresh them from the local workspace.
+
+## Current findings
+
+- `setup-directml-env.ps1` succeeds
+- `smoke_test_directml.py` succeeds (`DIRECTML_SMOKE_OK`)
+- `peft` import needed `transformers<5`; the 5.x line broke the import stack in this experiment
+- The first GPT-2-style PEFT probe failed during `loss.backward()` with:
+  - `RuntimeError: The GPU device instance has been suspended`
+- The failure was narrowed to the GPT-2 `Conv1D` LoRA target path, not DirectML overall
+- `smoke_test_peft_directml.py` now uses a tiny Llama/Qwen-style model with standard linear LoRA targets and succeeds (`PEFT_DIRECTML_OK`)
+
+Interpretation:
+
+- **DirectML is alive enough to be worth probing further**
+- **A tiny `transformers` + `peft` LoRA training step can run on DirectML when the target modules are standard linear projections**
+- The next risk is scaling from this tiny probe to a real Qwen-style visual model without hitting unsupported DirectML operators or memory limits
+
+## What success looks like
+
+1. DirectML device creation works
+2. Tensor ops work on that device
+3. A tiny backward pass works
+4. We can then attempt a tiny transformer or PEFT probe
+
+## What failure means
+
+If DirectML cannot survive even the tiny backward-pass probe, stop forcing the
+Windows lane and move the true training run to Linux or cloud.

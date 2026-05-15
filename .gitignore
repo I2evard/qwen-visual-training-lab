@@ -1,0 +1,7 @@
+.venv-directml/
+__pycache__/
+*.pyc
+results/
+logs/
+data/
+evals/
